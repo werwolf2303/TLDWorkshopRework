@@ -2,13 +2,13 @@
 
 <h3>Features</h3>
 - Linux support
-- <br>
+<br>
 - Windows support
-- <br>
+<br>
 - MacOS support (only Whisky)
-- <br>
+<br>
 - All features of the original except ModPacks (for now)
-- <br>
+<br>
 - Open source and not closed source and obfuscated
 <br>
 
