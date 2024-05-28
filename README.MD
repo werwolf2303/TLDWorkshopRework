@@ -14,4 +14,4 @@
 
 <img src="preview.png" width="400">
 
-<a href="https://github.com/werwolf2303/TLDWorkshopRework/releases/latest/TLDWorkshopRework.jar">Download
+<a href="https://github.com/werwolf2303/TLDWorkshopRework/releases/latest/download/TLDWorkshopRework.jar">Download
