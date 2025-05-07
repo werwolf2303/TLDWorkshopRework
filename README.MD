@@ -14,6 +14,6 @@
 
 Why? I love the long drive and mods and I wanted it to work on the SteamDeck
 
-<img src="preview.png" width="400">
+<img src="https://github.com/werwolf2303/TLDWorkshopRework/blob/main/preview.png?raw=true" width="400">
 
 <a href="https://github.com/werwolf2303/TLDWorkshopRework/releases/latest/download/TLDWorkshopRework.jar">Download
