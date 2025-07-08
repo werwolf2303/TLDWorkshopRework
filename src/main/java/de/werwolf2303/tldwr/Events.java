@@ -2,8 +2,11 @@ package de.werwolf2303.tldwr;
 
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 public class Events {
+    private static Logger logger = PublicValues.newLogger(Events.class.getSimpleName());
+
     private static class PrivateEvent {
         public final String name;
         public final boolean isProtected;
@@ -83,10 +86,12 @@ public class Events {
     }
 
     public static void subscribe(String name, Runnable runnable) {
+        logger.info("Subscribing to " + name);
         Objects.requireNonNull(getEventWithName(name)).subscribers.add(runnable);
     }
 
     public static void unsubscribe(String name, Runnable runnable) {
+        logger.info("Unsubscribing from " + name);
        Objects.requireNonNull(getEventWithName(name)).subscribers.remove(runnable);
     }
 
@@ -99,6 +104,7 @@ public class Events {
     }
 
     public static void triggerEvent(String name) {
+        logger.info("Triggering " + name);
         Objects.requireNonNull(getEventWithName(name)).trigger();
     }
 }

@@ -21,13 +21,16 @@ import java.nio.file.Files;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 public class TLDPatcher {
-    private File tldPatcherConfigPath;
-    private File tldPatcherPathConfigPath;
+    private final File tldPatcherConfigPath;
+    private final File tldPatcherPathConfigPath;
+    private final Logger logger = PublicValues.newLogger(getClass().getSimpleName());
 
     public TLDPatcher() {
         tldPatcherPathConfigPath = new File(System.getProperty("user.home"), "TLDWR" + File.separator + "path.json");
+        logger.info("TLD patcher path config path: " + tldPatcherPathConfigPath.getAbsolutePath());
 
         if(!tldPatcherPathConfigPath.exists()) {
             switch (PublicValues.osType) {
@@ -54,6 +57,7 @@ public class TLDPatcher {
                 root.put("SteamPath", PublicValues.steamPath);
                 writer.write(root.toString());
                 writer.close();
+                logger.info("Created patcher path config and wrote defaults");
             } catch (IOException e) {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(null, "Failed to create path config");
@@ -64,6 +68,11 @@ public class TLDPatcher {
                 PublicValues.tldPath = root.getString("TLDPath");
                 PublicValues.tldUserPath = root.getString("TLDUserPath");
                 PublicValues.steamPath = root.getString("SteamPath");
+
+                logger.info("Loaded patcher path config");
+                logger.info("TLDPath: " + PublicValues.tldPath);
+                logger.info("TLDUserPath: " + PublicValues.tldUserPath);
+                logger.info("SteamPath: " + PublicValues.steamPath);
             } catch (NullPointerException e) {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(null, "Failed to read path config");
@@ -76,6 +85,7 @@ public class TLDPatcher {
         }
 
         tldPatcherConfigPath = new File(PublicValues.tldUserPath + File.separator + "Mods", "patcher.tldwr");
+        logger.info("Patcher config path: " + tldPatcherConfigPath.getAbsolutePath());
         if(!tldPatcherConfigPath.exists()) {
             if(!new File(PublicValues.tldUserPath, "Mods").exists()) {
                 new File(PublicValues.tldUserPath, "Mods").mkdir();
@@ -94,6 +104,18 @@ public class TLDPatcher {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(null, "Failed to save patcher config");
             }
+            logger.info("Created patcher config and wrote defaults");
+        }
+
+        PublicValues.modPackFolderPath = new File(PublicValues.tldUserPath, "Modpacks").getAbsolutePath();
+        logger.info("Modpack folder path: " + PublicValues.modPackFolderPath);
+
+        if (!new File(PublicValues.tldUserPath, "Modpacks").exists()) {
+            new File(PublicValues.tldUserPath, "Modpacks").mkdir();
+        }
+
+        if (!new File(PublicValues.tldUserPath, "Modpack").exists()) {
+            new File(PublicValues.tldUserPath, "Modpack").mkdir();
         }
     }
 
@@ -104,6 +126,7 @@ public class TLDPatcher {
                 return s.replace(":", "");
             }
         }
+        logger.info("Detected game version: " + output);
         return "";
     }
 
@@ -128,7 +151,7 @@ public class TLDPatcher {
             e.printStackTrace();
             JOptionPane.showMessageDialog(null, "Failed to load config");
         }
-        PublicValues.currentFrame.close();
+        if(PublicValues.mainFrame == null) PublicValues.currentFrame.close();
         JOptionPane.showMessageDialog(null, "Installation done");
     }
 
@@ -213,6 +236,7 @@ public class TLDPatcher {
     private void installModloader() {
         //Overwrite all files found
 
+        logger.info("Start game patching");
         try {
             JSONObject root = new JSONObject(configLoad());
             if(!root.getString("GameVersion").equals(getGameVersion())) {
@@ -233,6 +257,7 @@ public class TLDPatcher {
             JOptionPane.showMessageDialog(null, "Failed to copy file/s");
             System.exit(-1);
         }
+        logger.info("Created backup of original Assembly-CSharp.dll");
 
         try {
             copyStream(Objects.requireNonNull(getClass().getResourceAsStream("/Assembly-CSharp.dll")),
@@ -242,7 +267,7 @@ public class TLDPatcher {
             JOptionPane.showMessageDialog(null, "Failed to copy file/s");
             System.exit(-1);
         }
-
+        logger.info("Copied Assembly-CSharp.dll into Managed");
 
         try {
             copyStream(PublicValues.tldLoaderDownloadURL.openStream(), new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "TLDLoader.dll"));
@@ -251,6 +276,7 @@ public class TLDPatcher {
             JOptionPane.showMessageDialog(null, "Failed to download TLDLoader.dll");
             System.exit(-1);
         }
+        logger.info("Copied TLDLoader.dll into Managed");
 
         String tmpdir = System.getProperty("java.io.tmpdir");
         try (BufferedInputStream in = new BufferedInputStream(PublicValues.tldPatcherDownloadURL.openStream());
@@ -265,9 +291,11 @@ public class TLDPatcher {
             JOptionPane.showMessageDialog(null, "Failed to download TLDPatcher.zip");
             System.exit(-1);
         }
+        logger.info("Downloaded patcher from: " + PublicValues.tldPatcherDownloadURL.toString());
 
         if(!new File(PublicValues.tldUserPath + File.separator + "Mods", "Assets").exists()) {
             new File(PublicValues.tldUserPath + File.separator + "Mods", "Assets").mkdir();
+            logger.info("Created assets directory in mod folder");
         }
 
         try {
@@ -277,6 +305,7 @@ public class TLDPatcher {
             JOptionPane.showMessageDialog(null, "Failed to extract TLDPatcher");
             System.exit(-1);
         }
+        logger.info("Unzipped TLDPatcher.zip");
     }
 
     private void findSteamPath(OSDetect.OSType osType) {
@@ -288,6 +317,9 @@ public class TLDPatcher {
                 break;
             case Linux:
                 steamPath = System.getProperty("user.home") + "/.local/share/Steam";
+                if (!new File(steamPath).exists()) {
+                    steamPath = System.getProperty("user.home") + "/.var/app/com.valvesoftware.Steam/.local/share/Steam";
+                }
                 break;
             case MacOS:
                 steamPath = findSteamPathMacOS();
@@ -300,6 +332,7 @@ public class TLDPatcher {
         }
 
         PublicValues.steamPath = steamPath;
+        logger.info("Found steam: " + PublicValues.steamPath);
     }
 
     private void findTLDUserPath() {
@@ -325,6 +358,7 @@ public class TLDPatcher {
         }
 
         PublicValues.tldUserPath = tldUserPath.getAbsolutePath();
+        logger.info("Found tld user path: " + PublicValues.tldUserPath);
     }
 
     private void findTLDUserPathLinux() {
@@ -336,6 +370,7 @@ public class TLDPatcher {
         }
 
         PublicValues.tldUserPath = protonPath.getAbsolutePath();
+        logger.info("Found tld user path: " + PublicValues.tldUserPath);
     }
 
     private void findTLDUserPathMacOS() {
@@ -349,6 +384,7 @@ public class TLDPatcher {
         }
 
         PublicValues.tldUserPath = tldUserPath.getAbsolutePath();
+        logger.info("Found tld user path: " + PublicValues.tldUserPath);
     }
 
     private void findTLDPath() {
@@ -388,6 +424,7 @@ public class TLDPatcher {
             JOptionPane.showMessageDialog(null, "Didn't find The Long Drive! Is it installed?");
             System.exit(-1);
         }
+        logger.info("Found tld path: " + PublicValues.tldPath);
     }
 
     private void findTLDPathWhisky() {
@@ -409,6 +446,7 @@ public class TLDPatcher {
             JOptionPane.showMessageDialog(null, "Didn't find The Long Drive! Is it installed?");
             System.exit(-1);
         }
+        logger.info("Found tld path: " + PublicValues.tldPath);
     }
 
     private void findTLDPathMacOS() {
@@ -418,6 +456,8 @@ public class TLDPatcher {
         }
 
         findTLDPathDefault();
+
+        logger.info("Found tld path: " + PublicValues.tldPath);
     }
 
     private String findSteamPathMacOS() {

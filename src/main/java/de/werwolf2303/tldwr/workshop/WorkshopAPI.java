@@ -7,7 +7,6 @@ import de.werwolf2303.tldwr.Events;
 import de.werwolf2303.tldwr.PublicValues;
 import de.werwolf2303.tldwr.TLDWREvents;
 import net.lingala.zip4j.ZipFile;
-import net.lingala.zip4j.model.FileHeader;
 import org.apache.commons.io.IOUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -20,8 +19,11 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.channels.ConnectionPendingException;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.logging.Logger;
 
 public class WorkshopAPI {
     private static String respositoryURL = "https://kolbenlp.gitlab.io/WorkshopTLDMods";
@@ -30,8 +32,11 @@ public class WorkshopAPI {
     private static ArrayList<Object[]> imageCache;
     private static File configPath;
     private static int getStreamRetries = 0;
-    private static int getStringRetries = 0;
     private static int customRetries = 0;
+    private static final Logger logger = PublicValues.newLogger(WorkshopAPI.class.getSimpleName());
+    private static String modPackRepositoryURL = "https://gitlab.com/KolbenLP/WorkshopTLDMods";
+    private static String modPackList = "/-/raw/WorkshopDatabase8.5/Modpacks/modlist_3.json";
+    private static ArrayList<Mod> modPacksCache;
 
     public static class Mod {
         public String Name;
@@ -46,16 +51,17 @@ public class WorkshopAPI {
         public String Author;
     }
 
-
-
     @FunctionalInterface
     public interface DownloadProgressRunnable {
         void run(double percentage);
     }
 
     public WorkshopAPI() {
+        WorkshopAPI.logger.info("Initializing Workshop API");
+
         modsCache = new ArrayList<>();
         imageCache = new ArrayList<>();
+        modPacksCache = new ArrayList<>();
 
         checkIfModConfigIsPresent();
 
@@ -90,7 +96,9 @@ public class WorkshopAPI {
                 e.printStackTrace();
                 JOptionPane.showMessageDialog(null, "Failed to write to mod store");
             }
-        }
+
+            logger.info("Wrote new config: " + configPath);
+        }else logger.info("Mod config exists");
     }
 
     public static ArrayList<Mod> checkForModUpdates() throws IOException {
@@ -103,13 +111,14 @@ public class WorkshopAPI {
                 }
             }
         }
+        logger.info("Mods with updates: " + modsWithUpdates.size());
         return modsWithUpdates;
     }
 
     public static void executeUpdate(Mod mod, JProgressBar progress) {
         File tmpdir = new File(System.getProperty("java.io.tmpdir"));
         try (BufferedInputStream in = new BufferedInputStream(new URL(mod.Link).openStream());
-             FileOutputStream fileOutputStream = new FileOutputStream(new File(tmpdir, getFileName(mod.Link)))) {
+             FileOutputStream fileOutputStream = new FileOutputStream(new File(tmpdir, mod.FileName))) {
             URL url = new URL(mod.Link);
             URLConnection con = url.openConnection();
             int size = con.getContentLength();
@@ -125,9 +134,9 @@ public class WorkshopAPI {
             addModToMyMods(mod);
             if(mod.Link.toLowerCase().endsWith(".zip")) {
                 //Unpack zip
-                new ZipFile(new File(tmpdir, getFileName(mod.Link))).extractAll(new File(PublicValues.tldUserPath, "Mods").getAbsolutePath());
+                new ZipFile(new File(tmpdir, mod.FileName)).extractAll(new File(PublicValues.tldUserPath, "Mods").getAbsolutePath());
             }
-            copyFile(new File(tmpdir, getFileName(mod.Link)), new File(PublicValues.tldUserPath + File.separator + "Mods", getFileName(mod.Link)));
+            copyFile(new File(tmpdir, mod.FileName), new File(PublicValues.tldUserPath + File.separator + "Mods", mod.FileName));
             Events.triggerEvent(TLDWREvents.DOWNLOAD_FINISHED.getName());
         } catch (IOException e) {
             e.printStackTrace();
@@ -142,10 +151,6 @@ public class WorkshopAPI {
             }
         }
         return -1;
-    }
-
-    private static String getFileName(String url) {
-         return url.split("/")[url.split("/").length-1];
     }
 
     private static void configSave(JSONObject modified) throws IOException {
@@ -216,30 +221,12 @@ public class WorkshopAPI {
         configSave(root);
     }
 
-    private static String makeGetString(String url) throws IOException, ConnectionPendingException {
-        if(getStringRetries > 4) {
-            throw new ConnectionPendingException();
-        }
-        OkHttpClient client = new OkHttpClient();
-        client.setRetryOnConnectionFailure(true);
-        Request request = new Request.Builder()
-                .url(url)
-                .build();
-        try {
-            String ret = client.newCall(request).execute().body().string();
-            getStringRetries = 0;
-            return ret;
-        }catch (ConnectException e) {
-            getStringRetries++;
-            return makeGetString(url);
-        }
-    }
-
     private static InputStream makeGetStream(String url) throws IOException, ConnectionPendingException {
         if(getStreamRetries > 4) {
             throw new ConnectionPendingException();
         }
-        OkHttpClient client = new OkHttpClient();
+
+        OkHttpClient client = PublicValues.client;
         client.setRetryOnConnectionFailure(true);
         Request request = new Request.Builder()
                 .url(url)
@@ -255,7 +242,7 @@ public class WorkshopAPI {
         }
     }
 
-    public static ArrayList<Mod> getAllMods() throws IOException {
+    public static ArrayList<Mod> getAllMods() {
         return modsCache;
     }
 
@@ -275,37 +262,52 @@ public class WorkshopAPI {
     }
 
     public static void download(Mod mod, DownloadProgressRunnable runnable) {
+        download(mod, runnable, PublicValues.tldUserPath + File.separator + "Mods", true);
+    }
+
+    public static void download(Mod mod, DownloadProgressRunnable runnable, String downloadPath, boolean addToMyMods) {
         Thread downloadThread = new Thread(() -> {
-            File tmpdir = new File(System.getProperty("java.io.tmpdir"));
-            try (BufferedInputStream in = new BufferedInputStream(new URL(mod.Link).openStream());
-                 FileOutputStream fileOutputStream = new FileOutputStream(new File(tmpdir, getFileName(mod.Link)))) {
-                URL url = new URL(mod.Link);
-                URLConnection con = url.openConnection();
-                int size = con.getContentLength();
-                byte[] dataBuffer = new byte[1024];
-                int bytesRead;
-                double sumCount = 0.0;
-                while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
-                    fileOutputStream.write(dataBuffer, 0, bytesRead);
-                    sumCount += bytesRead;
-                    runnable.run(sumCount / size * 100.0);
-                }
-                addModToMyMods(mod);
-                if(mod.Link.toLowerCase().endsWith(".zip")) {
-                    //Unpack zip
-                    new ZipFile(new File(tmpdir, getFileName(mod.Link))).extractAll(new File(PublicValues.tldUserPath, "Mods").getAbsolutePath());
-                    if(new File(PublicValues.tldUserPath + File.separator + "Mods", getFileName(mod.Link)).exists()) {
-                        new File(PublicValues.tldUserPath + File.separator + "Mods", getFileName(mod.Link)).delete();
-                    }
-                }
-                copyFile(new File(tmpdir, getFileName(mod.Link)), new File(PublicValues.tldUserPath + File.separator + "Mods", getFileName(mod.Link)));
-                Events.triggerEvent(TLDWREvents.DOWNLOAD_FINISHED.getName());
-            } catch (IOException e) {
-                e.printStackTrace();
-                JOptionPane.showMessageDialog(null, "Failed to download mod");
+            try {
+                downloadSingleThreaded(mod, runnable, downloadPath, addToMyMods);
+            } catch (IOException ignored) {
             }
         });
         downloadThread.start();
+    }
+
+    public static void downloadSingleThreaded(Mod mod, DownloadProgressRunnable runnable, String downloadPath, boolean addToMyMods) throws IOException {
+        File tmpdir = new File(System.getProperty("java.io.tmpdir"));
+        try (BufferedInputStream in = new BufferedInputStream(new URL(mod.Link).openStream());
+             FileOutputStream fileOutputStream = new FileOutputStream(new File(tmpdir, mod.FileName))) {
+            URL url = new URL(mod.Link);
+            URLConnection con = url.openConnection();
+            int size = con.getContentLength();
+            byte[] dataBuffer = new byte[1024];
+            int bytesRead;
+            double sumCount = 0.0;
+            while ((bytesRead = in.read(dataBuffer, 0, 1024)) != -1) {
+                fileOutputStream.write(dataBuffer, 0, bytesRead);
+                sumCount += bytesRead;
+                runnable.run(sumCount / size * 100.0);
+            }
+            if (addToMyMods) addModToMyMods(mod);
+            if(mod.Link.toLowerCase().endsWith(".zip")) {
+                //Unpack zip
+                new ZipFile(new File(tmpdir, mod.FileName)).extractAll(downloadPath);
+                if(new File(downloadPath, mod.FileName).exists()) {
+                    new File(downloadPath, mod.FileName).delete();
+                }
+                logger.info("Unzipped " + mod.FileName + " to " + downloadPath);
+            }else {
+                logger.info("Copying " + mod.FileName + " to " + new File(downloadPath, mod.FileName).getAbsolutePath());
+                copyFile(new File(tmpdir, mod.FileName), new File(downloadPath, mod.FileName));
+            }
+            if(addToMyMods) Events.triggerEvent(TLDWREvents.DOWNLOAD_FINISHED.getName());
+        } catch (IOException e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Failed to download mod: " + mod.Name);
+            throw e;
+        }
     }
 
     public static ArrayList<Mod> getInstalledMods() throws IOException {
@@ -316,6 +318,8 @@ public class WorkshopAPI {
             Mod mod = new Gson().fromJson(entry.toString(), Mod.class);
             mods.add(mod);
         }
+
+        logger.info("Getting installed mods");
         return mods;
     }
 
@@ -323,8 +327,10 @@ public class WorkshopAPI {
         if(customRetries > 4) {
             throw new ConnectionPendingException();
         }
+        logger.info("Reloading mods");
         modsCache.clear();
-        OkHttpClient client = new OkHttpClient();
+        modPacksCache.clear();
+        OkHttpClient client = PublicValues.client;
         client.setRetryOnConnectionFailure(true);
         Request request = new Request.Builder()
                 .url(respositoryURL + "/" + modlist)
@@ -333,8 +339,16 @@ public class WorkshopAPI {
             for (Object entry : new JSONObject(client.newCall(request).execute().body().string()).getJSONArray("Mods")) {
                 modsCache.add(new Gson().fromJson(entry.toString(), Mod.class));
             }
+
+            request = request.newBuilder().url(modPackRepositoryURL + modPackList).build();
+
+            for (Object entry : new JSONObject(client.newCall(request).execute().body().string()).getJSONArray("Mods")) {
+                modPacksCache.add(new Gson().fromJson(entry.toString(), Mod.class));
+            }
             customRetries = 0;
         } catch (ConnectException e) {
+            logger.warning("Connect exception while reloading mods. Retrying...");
+            logger.warning(e.getMessage());
             customRetries++;
             reloadMods();
         } catch (IOException e) {
@@ -343,7 +357,7 @@ public class WorkshopAPI {
         }
     }
 
-    public static int getAmountOfModsInCategory(String categoryName) throws IOException {
+    public static int getAmountOfModsInCategory(String categoryName) {
         int count = 0;
 
         for(Mod mod : getAllMods()) {
@@ -355,7 +369,7 @@ public class WorkshopAPI {
         return count;
     }
 
-    public static ArrayList<Mod> getModsInCategory(int offset, int limit, String categoryName) throws IOException {
+    public static ArrayList<Mod> getModsInCategory(int offset, int limit, String categoryName) {
         ArrayList<Mod> modsCache = new ArrayList<>();
         ArrayList<Mod> mods = new ArrayList<>();
 
@@ -388,7 +402,7 @@ public class WorkshopAPI {
         return mods;
     }
 
-    public static ArrayList<Mod> getMods(int offset, int limit) throws IOException {
+    public static ArrayList<Mod> getMods(int offset, int limit) {
         ArrayList<Mod> mods = new ArrayList<>();
 
         if (modsCache.isEmpty() || offset < 0 || limit < 1 || offset >= modsCache.size()) {
@@ -401,5 +415,69 @@ public class WorkshopAPI {
         }
 
         return mods;
+    }
+
+    public static ArrayList<Mod> getAllModPacks() {
+        return modPacksCache;
+    }
+
+    public static void deleteModPackFolder(File path) {
+        for (File file : path.listFiles()) {
+            if (file.isDirectory()) {
+                deleteModPackFolder(file);
+                continue;
+            }
+            file.delete();
+        }
+    }
+
+    public static void runWithModPack(String txtPath, DownloadProgressRunnable callback) {
+        new Thread(() -> {
+            try {
+                if (new File(PublicValues.tldUserPath, "Modpack").exists()) {
+                    deleteModPackFolder(new File(PublicValues.tldUserPath, "Modpack"));
+                }
+
+                new File(PublicValues.tldUserPath, "Modpack").mkdir();
+
+                String[] mods = IOUtils.toString(Files.newInputStream(Paths.get(txtPath)), StandardCharsets.UTF_8).split("\n");
+                int unavailableMods = 0;
+                for (String mod : mods) {
+                    if (mod.equals("")) continue;
+                    boolean found = false;
+
+                    for (Mod listedMod : getAllMods()) {
+                        if(listedMod.FileName.equals(mod)) {
+                            downloadSingleThreaded(listedMod, callback, new File(PublicValues.tldUserPath, "Modpack").getAbsolutePath(), false);
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found) unavailableMods++;
+                }
+
+                Events.triggerEvent(TLDWREvents.DOWNLOAD_FINISHED.getName());
+
+                JOptionPane.showMessageDialog(null, "Modpack download finished. Not available mods: " + unavailableMods);
+
+                new File(PublicValues.tldUserPath + File.separator + "Mods" + File.separator + "temp").mkdir();
+                new File(PublicValues.tldUserPath + File.separator + "Mods" + File.separator + "temp" + File.separator + "mp.dat").createNewFile();
+
+                switch (PublicValues.osType) {
+                    case Linux:
+                        Runtime.getRuntime().exec(new String[] {new File(PublicValues.steamPath, "steam.sh").getAbsolutePath(), "steam://rungameid/1017180"});
+                        break;
+                    case Windows:
+                        Runtime.getRuntime().exec(new String[] {new File(PublicValues.steamPath, "steam.exe").getAbsolutePath(), "steam://rungameid/1017180"});
+                        break;
+                    default:
+                        JOptionPane.showMessageDialog(null, "Unsupported OS! Please start the game manually");
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null, "Failed to start tld with modpack: " + e.getMessage());
+            }
+        }, "Modpack download").start();
     }
 }

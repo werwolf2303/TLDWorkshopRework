@@ -7,49 +7,88 @@ import de.werwolf2303.tldwr.workshop.WorkshopAPI;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.io.IOException;
 import java.util.ArrayList;
 
-public class ModDisplay extends JPanel {
+public class ModDisplay extends JLayeredPane {
     ArrayList<ModDisplayModule> modules;
     ArrayList<WorkshopAPI.Mod> mods;
-    private WorkshopFrame mainFrame;
     private boolean ignoreInstalledMods;
+    private JPanel modsPanel;
+    private JPanel loadingPanel;
+    private JProgressBar loadingBar;
+    private JScrollPane modsScrollPanel;
+    private Color backgroundColor;
+    private boolean singleClick = false;
 
-    public ModDisplay(WorkshopFrame frame, boolean ignoreInstalledMods) {
+    public boolean isModPacks = false;
+
+    public ModDisplay(JPanel panel, boolean ignoreInstalledMods) {
         this.ignoreInstalledMods = ignoreInstalledMods;
         modules = new ArrayList<>();
         mods = new ArrayList<>();
 
-        this.mainFrame = frame;
+        backgroundColor = panel.getBackground();
 
-        setLayout(null);
-    }
+        Timer resizeTimer = new Timer(250, event -> {
+            modsScrollPanel.setSize(getSize());
+            modsPanel.setSize(getWidth(), modsPanel.getHeight());
+            loadingPanel.setSize(getSize());
 
-    public void setWorkshopFrame(WorkshopFrame frame) {
-        this.mainFrame = frame;
-    }
+            recalculatePositions();
+        });
+        resizeTimer.setRepeats(false);
 
-    public void initMod(WorkshopAPI.Mod mod, boolean disableExtendedFrame) {
-        if (!ignoreInstalledMods) {
-            try {
-                for (WorkshopAPI.Mod entry : WorkshopAPI.getInstalledMods()) {
-                    if (entry.Name.equals(mod.Name)) {
-                        return;
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-                JOptionPane.showMessageDialog(null, "Failed to get installed mods");
+        addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent e) {
+                resizeTimer.restart();
             }
-        }
-        mods.add(mod);
-        modules.add(ModDisplayModule.init(mod, mainFrame, disableExtendedFrame));
-        modRefresh();
+        });
+
+        modsPanel = new JPanel();
+        modsPanel.setLayout(null);
+
+        modsScrollPanel = new JScrollPane();
+        modsScrollPanel.setViewportView(modsPanel);
+        modsScrollPanel.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        modsScrollPanel.getVerticalScrollBar().setUnitIncrement(30);
+        modsScrollPanel.getVerticalScrollBar().setValue(0);
+
+        loadingBar = new JProgressBar();
+        loadingBar.setIndeterminate(true);
+        loadingBar.setStringPainted(false);
+        loadingBar.setOrientation(SwingConstants.VERTICAL);
+
+        loadingPanel = new JPanel();
+        loadingPanel.setLayout(new BorderLayout());
+        loadingPanel.add(loadingBar, BorderLayout.CENTER);
+
+        add(modsScrollPanel, JLayeredPane.DEFAULT_LAYER);
+        add(loadingPanel, JLayeredPane.PALETTE_LAYER);
+
+        Events.subscribe(TLDWREvents.MODLOAD_FINISHED.getName(), new Runnable() {
+            @Override
+            public void run() {
+                if(!isVisible()) return;
+
+                endLoading();
+
+                SwingUtilities.invokeLater(() -> {
+                    modsScrollPanel.getVerticalScrollBar().setValue(0);
+                });
+            }
+        });
+    }
+
+    public void setSingleClick() {
+        singleClick = true;
     }
 
     public void addMod(WorkshopAPI.Mod mod, boolean disableExtendedFrame) {
-        if (!ignoreInstalledMods) {
+        if (ignoreInstalledMods) {
             try {
                 for (WorkshopAPI.Mod entry : WorkshopAPI.getInstalledMods()) {
                     if (entry.Name.equals(mod.Name)) {
@@ -62,76 +101,103 @@ public class ModDisplay extends JPanel {
             }
         }
         mods.add(mod);
-        modules.add(ModDisplayModule.init(mod, mainFrame, disableExtendedFrame));
+        modules.add(ModDisplayModule.init(mod, backgroundColor, disableExtendedFrame, singleClick, isModPacks));
+    }
 
-        modRefreshRespectSize();
+    public void beginLoading() {
+        loadingPanel.setVisible(true);
+        loadingPanel.revalidate();
+        loadingPanel.repaint();
+    }
+
+    public void endLoading() {
+        loadingPanel.setVisible(false);
+        loadingPanel.revalidate();
+        loadingPanel.repaint();
     }
 
     public void removeMods() {
         for (JPanel module : modules) {
-            remove(module);
+            modsPanel.remove(module);
         }
-
         mods.clear();
         modules.clear();
+    }
 
-        modRefreshRespectSize();
+    private void recalculatePositions() {
+        int yCache = 3;
+        int xCache = 5;
+
+        int columns = (int) Math.floor((double) (modsPanel.getWidth() - 5) / 299);
+
+        int column = 0;
+        for (Component component : modsPanel.getComponents()) {
+            component.setBounds(xCache, yCache, 299, 121);
+
+            if (column == columns - 1) {
+                column = 0;
+                xCache = 5;
+                yCache += 124;
+            } else {
+                xCache += 302;
+                column++;
+            }
+        }
+
+        Component lastComponent;
+        try {
+            lastComponent = modsPanel.getComponents()[modsPanel.getComponentCount() - 1];
+        }catch (ArrayIndexOutOfBoundsException e) {
+            if (modsPanel.getComponentCount() == 0) return;
+            lastComponent = modsPanel.getComponents()[0];
+        }
+        int calcY = lastComponent.getY() + lastComponent.getHeight() + 3;
+
+        modsPanel.setSize(new Dimension(modsPanel.getWidth(), calcY));
+        modsPanel.setPreferredSize(new Dimension(modsPanel.getWidth(), calcY));
+
+        modsPanel.revalidate();
+        modsPanel.repaint();
     }
 
     public void modRefreshRespectSize() {
         int yCache = 3;
-        int xCache = 3;
-        boolean firstRow = true;
+        int xCache = 5;
 
+        modsPanel.removeAll();
+
+        int columns = (int) Math.floor((double) (modsPanel.getWidth() - 5) / 299);
+
+        int column = 0;
         for (ModDisplayModule module : modules) {
-            if (299 * 2 < getSize().width) {
-                module.setBounds(xCache, yCache, 299, 121);
-                add(module);
-                xCache += 305;
-                if (xCache + 305 > getPreferredSize().width) {
-                    yCache += 124;
-                    xCache = 3;
-                }
+            module.setBounds(xCache, yCache, 299, 121);
+            modsPanel.add(module);
+
+            if (column == columns - 1) {
+                column = 0;
+                xCache = 5;
+                yCache += 124;
             } else {
-                if (firstRow) {
-                    module.setBounds(3, yCache, 299, 121);
-                    add(module);
-                    firstRow = false;
-                } else {
-                    module.setBounds(305, yCache, 299, 121);
-                    add(module);
-                    firstRow = true;
-                    yCache += 124;
-                }
+                xCache += 302;
+                column++;
             }
         }
 
-        setSize(new Dimension(xCache + 2, yCache + 3));
-        setPreferredSize(new Dimension(xCache + 3, yCache + 3));
+        Component lastComponent;
+        try {
+            lastComponent = modsPanel.getComponents()[modsPanel.getComponentCount() - 1];
+        }catch (ArrayIndexOutOfBoundsException e) {
+            if (modsPanel.getComponentCount() == 0) return;
+            lastComponent = modsPanel.getComponents()[0];
+        }
+        int calcY = lastComponent.getY() + lastComponent.getHeight() + 3;
 
-        revalidate();
-        repaint();
+        modsPanel.setSize(new Dimension(modsPanel.getWidth(), calcY));
+        modsPanel.setPreferredSize(new Dimension(modsPanel.getWidth(), calcY));
+
+        modsPanel.revalidate();
+        modsPanel.repaint();
 
         Events.triggerEvent(TLDWREvents.MODLOAD_FINISHED.getName());
-    }
-
-    private void modRefresh() {
-        int yCache = 3;
-        boolean firstRow = true;
-
-        for (ModDisplayModule module : modules) {
-            if (firstRow) {
-                module.setBounds(3, yCache, 299, 121);
-                add(module);
-                firstRow = false;
-            } else {
-                module.setBounds(305, yCache, 299, 121);
-                add(module);
-                firstRow = true;
-                yCache += 124;
-            }
-        }
-
-        setPreferredSize(new Dimension(305, yCache + 3));
     }
 }

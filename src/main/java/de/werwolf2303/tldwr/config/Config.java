@@ -58,6 +58,10 @@ public class Config {
         }
     }
 
+    public String getPath() {
+        return configfilepath;
+    }
+
     /**
      * Checks the config for errors<br>
      * If there are any they will be replaced with their default value

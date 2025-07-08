@@ -6,8 +6,8 @@
       <xy x="20" y="20" width="658" height="555"/>
     </constraints>
     <properties>
-      <minimumSize width="658" height="555"/>
-      <preferredSize width="658" height="555"/>
+      <minimumSize width="-1" height="-1"/>
+      <preferredSize width="-1" height="-1"/>
     </properties>
     <border type="none"/>
     <children>

@@ -9,6 +9,7 @@ import de.werwolf2303.tldwr.workshop.WorkshopAPI;
 import javax.swing.*;
 import javax.swing.border.LineBorder;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.awt.font.TextAttribute;
@@ -25,17 +26,23 @@ public class ModDisplayModule extends JPanel {
     public JTextPane modDescription;
     public WorkshopAPI.Mod mod;
     private ModDisplayModule thisOne;
-    private WorkshopFrame mainFrame;
     public boolean isHighlighted = false;
     private boolean disableExtendedFrame;
+    private JProgressBar progressBar;
+    private Color backgroundColor;
+    private boolean singleClick;
+    private boolean isModPacks = false;
 
-    public ModDisplayModule(WorkshopFrame frame) {
+    public ModDisplayModule(Color backgroundColor, boolean singleClick, boolean isModPacks) {
         setLayout(null);
         setPreferredSize(new Dimension(299, 121));
 
         setBorder(new LineBorder(Color.black, 1));
 
-        this.mainFrame = frame;
+        this.backgroundColor = backgroundColor;
+        this.singleClick = singleClick;
+        this.isModPacks = isModPacks;
+
         thisOne = this;
 
         modImage = new JImagePanel();
@@ -65,63 +72,113 @@ public class ModDisplayModule extends JPanel {
         modDate.setFont(new Font(getFont().getName(), getFont().getStyle(), 8));
 
         modDescription = new JTextPane();
-        modDescription.setBounds(119, 54, 170, 56);
+        modDescription.setBounds(119, 44, 170, 70);
         add(modDescription);
-        modDescription.setFont(new Font(getFont().getName(), getFont().getStyle(), 8));
         modDescription.setEditable(false);
         modDescription.setContentType("text/html");
         modDescription.setBackground(getBackground());
 
-        for(Component component : getComponents()) {
-            component.addMouseListener(new MouseListener() {
-                @Override
-                public void mouseClicked(MouseEvent e) {
+        progressBar = new JProgressBar();
+        progressBar.setStringPainted(false);
+        progressBar.setMinimum(0);
+        progressBar.setMaximum(100);
+        progressBar.setValue(20);
+        progressBar.setBounds(10, 50, 279, 20);
+        progressBar.setForeground(Color.green);
+        progressBar.setVisible(false);
+        add(progressBar);
 
+        installListenersRecursively(this);
+
+        Events.subscribe(TLDWREvents.DOWNLOAD_FINISHED.getName(), new Runnable() {
+            @Override
+            public void run() {
+                if(!isVisible()) return;
+                modImage.setVisible(true);
+                modName.setVisible(true);
+                modVersion.setVisible(true);
+                modAuthor.setVisible(true);
+                modDate.setVisible(true);
+                modDescription.setVisible(true);
+                progressBar.setVisible(false);
+                progressBar.setValue(0);
+
+                PublicValues.mainFrame.workshopFrame.refreshButton.doClick();
+            }
+        });
+    }
+
+    private void installListenersRecursively(Component component) {
+        component.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if ((!disableExtendedFrame && e.getClickCount() == 2) || (!disableExtendedFrame && e.getClickCount() == 1 && singleClick)) {
+                    PublicValues.mainFrame.modExpandedFrame.showWith(mod, isModPacks);
+                    return;
                 }
 
-                @Override
-                public void mousePressed(MouseEvent e) {
-                    if(!disableExtendedFrame) {
-                    if(e.getClickCount() == 2) {
-                        PublicValues.extendedFrameVisible = true;
-                        PublicValues.modExpandedFrame.showWith(mod);
+                if (e.getClickCount() == 1) {
+                    if (isHighlighted) {
+                        isHighlighted = false;
+                        setBackground(backgroundColor);
+                        Events.triggerEvent(TLDWREvents.MOD_UNSELECTED.getName());
+                        return;
                     }
+
+                    if (PublicValues.lastHighlightedMod != null) {
+                        PublicValues.lastHighlightedMod.setBackground(backgroundColor);
+                        PublicValues.lastHighlightedMod.isHighlighted = false;
                     }
-                    if(e.getClickCount() == 1) {
-                        if(isHighlighted) {
-                            isHighlighted = false;
-                            setBackground(frame.frame.getBackground());
-                            Events.triggerEvent(TLDWREvents.MOD_UNSELECTED.getName());
-                            return;
-                        }
-                        if(PublicValues.lastHighlightedMod != null) {
-                            PublicValues.lastHighlightedMod.setBackground(frame.frame.getBackground());
-                        }
-                        PublicValues.lastHighlightedMod = thisOne;
-                        thisOne.setBackground(Color.darkGray);
-                        isHighlighted = true;
-                        Events.triggerEvent(TLDWREvents.MOD_SELECTED.getName());
-                    }
-                }
 
-                @Override
-                public void mouseReleased(MouseEvent e) {
-
+                    PublicValues.lastHighlightedMod = thisOne;
+                    thisOne.setBackground(new Color(255, 165, 0));
+                    isHighlighted = true;
+                    Events.triggerEvent(TLDWREvents.MOD_SELECTED.getName());
                 }
+            }
 
-                @Override
-                public void mouseEntered(MouseEvent e) {
-                    if(isHighlighted) return;
-                    setBackground(Color.gray);
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                if (!isHighlighted) {
+                    setBackground(Color.decode("#ffe3b1"));
                 }
+            }
 
-                @Override
-                public void mouseExited(MouseEvent e) {
-                    if(isHighlighted) return;
-                    setBackground(mainFrame.frame.getBackground());
+            @Override
+            public void mouseExited(MouseEvent e) {
+                if (!isHighlighted) {
+                    setBackground(backgroundColor);
                 }
-            });
+            }
+        });
+
+        if (component instanceof Container) {
+            for (Component child : ((Container) component).getComponents()) {
+                installListenersRecursively(child);
+            }
         }
+    }
+
+    public void download() {
+        modImage.setVisible(false);
+        modName.setVisible(false);
+        modVersion.setVisible(false);
+        modAuthor.setVisible(false);
+        modDate.setVisible(false);
+        modDescription.setVisible(false);
+        progressBar.setVisible(true);
+
+        WorkshopAPI.download(mod, new WorkshopAPI.DownloadProgressRunnable() {
+            @Override
+            public void run(double percentage) {
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        progressBar.setValue((int) percentage);
+                    }
+                });
+            }
+        });
     }
 
     @Override
@@ -133,9 +190,9 @@ public class ModDisplayModule extends JPanel {
         }
     }
 
-    public static ModDisplayModule init(WorkshopAPI.Mod mod, WorkshopFrame frame, boolean disableExtendedFrame) {
-        ModDisplayModule module = new ModDisplayModule(frame);
-        module.modDescription.setText("<body style='font-size:6px'>" + mod.Description + "<br>");
+    public static ModDisplayModule init(WorkshopAPI.Mod mod, Color backgroundColor, boolean disableExtendedFrame, boolean singleClick, boolean isModPacks) {
+        ModDisplayModule module = new ModDisplayModule(backgroundColor, singleClick, isModPacks);
+        module.modDescription.setText("<body style='font-size:9px'>" + mod.Description + "<br>");
         Thread imageLoadingThread = new Thread(new Runnable() {
             @Override
             public void run() {
