@@ -129,7 +129,7 @@ public class ModExpandedFrame {
             modImage.setImage(WorkshopAPI.getImageStream(mod.PictureLink));
         } catch (MalformedURLException me) {
             try {
-                modImage.setImage(WorkshopAPI.getImageStream("https://gitlab.com/KolbenLP/WorkshopTLDMods/-/raw/WorkshopDatabase8.5/picture/Bild_2023-03-18_174359456.png"));
+                modImage.setImage(WorkshopAPI.getImageStream("https://gitlab.com/KolbenLP/WorkshopTLDMods/-/raw/WorkshopDatabase8.6/picture/Bild_2023-03-18_174359456.png"));
             } catch (IOException ioe) {
                 ioe.printStackTrace();
             }

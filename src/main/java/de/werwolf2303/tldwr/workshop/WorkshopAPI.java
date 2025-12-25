@@ -35,7 +35,7 @@ public class WorkshopAPI {
     private static int customRetries = 0;
     private static final Logger logger = PublicValues.newLogger(WorkshopAPI.class.getSimpleName());
     private static String modPackRepositoryURL = "https://gitlab.com/KolbenLP/WorkshopTLDMods";
-    private static String modPackList = "/-/raw/WorkshopDatabase8.5/Modpacks/modlist_3.json";
+    private static String modPackList = "/-/raw/WorkshopDatabase8.6/Modpacks/modlist_3.json";
     private static ArrayList<Mod> modPacksCache;
 
     public static class Mod {
