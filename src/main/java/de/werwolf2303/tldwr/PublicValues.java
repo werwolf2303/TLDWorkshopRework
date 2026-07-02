@@ -16,6 +16,8 @@ import java.util.logging.Logger;
 public class PublicValues {
     public static URL tldPatcherDownloadURL = AutoThrow.create(URL.class,"https://gitlab.com/KolbenLP/WorkshopTLDMods/-/raw/WorkshopDatabase8.6/Workshop/TLDPatcher.zip");
     public static URL tldLoaderDownloadURL = AutoThrow.create(URL.class, "https://gitlab.com/KolbenLP/WorkshopTLDMods/-/raw/WorkshopDatabase8.6/Workshop/TLDLoader.dll");
+    public static URL zeroHarmonyDownloadURL = AutoThrow.create(URL.class, "https://gitlab.com/KolbenLP/WorkshopTLDMods/-/raw/WorkshopDatabase8.6/Workshop/0Harmony.dll");
+    public static URL monoCecilDownloadURL = AutoThrow.create(URL.class, "https://gitlab.com/KolbenLP/WorkshopTLDMods/-/raw/WorkshopDatabase8.6/Workshop/Mono.Cecil.dll");
     public static String tldPath;
     public static String steamPath;
     public static OSDetect.OSType osType;

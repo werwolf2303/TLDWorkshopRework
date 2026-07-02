@@ -157,6 +157,8 @@ public class TLDPatcher {
 
     private void cleanTLDLoaderInstall() {
         new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "TLDLoader.dll").delete();
+        new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "0Harmony.dll").delete();
+        new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "Mono.Cecil.dll").delete();
     }
 
     private void removeTLDModifications() {
@@ -277,6 +279,24 @@ public class TLDPatcher {
             System.exit(-1);
         }
         logger.info("Copied TLDLoader.dll into Managed");
+
+        try {
+            copyStream(PublicValues.monoCecilDownloadURL.openStream(), new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "Mono.Cecil.dll"));
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Failed to download Mono.Cecil.dll");
+            System.exit(-1);
+        }
+        logger.info("Copied Mono.Cecil.dll into Managed");
+
+        try {
+            copyStream(PublicValues.zeroHarmonyDownloadURL.openStream(), new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "0Harmony.dll"));
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, "Failed to download 0Harmony.dll");
+            System.exit(-1);
+        }
+        logger.info("Copied 0Harmony.dll into Managed");
 
         String tmpdir = System.getProperty("java.io.tmpdir");
         try (BufferedInputStream in = new BufferedInputStream(PublicValues.tldPatcherDownloadURL.openStream());
