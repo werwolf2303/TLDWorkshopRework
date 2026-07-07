@@ -58,7 +58,7 @@ public class MyModsFrame {
                     try {
                         Desktop.getDesktop().open(new File(PublicValues.tldUserPath, "Mods"));
                     } catch (IOException ex) {
-                        ex.printStackTrace();
+                        PublicValues.logException("Failed to open mods directory", ex);
                         JOptionPane.showMessageDialog(null, "Failed to open directory");
                     }
                 } else {
@@ -81,7 +81,7 @@ public class MyModsFrame {
                 try {
                     currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((WorkshopAPI.getInstalledMods().size() / (int) itemsPerPage.getValue()) + 1)))));
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to update page info", ex);
                     JOptionPane.showMessageDialog(null, "Failed to update page info");
                 }
                 modDisplay.removeMods();
@@ -90,7 +90,7 @@ public class MyModsFrame {
                         modDisplay.addMod(mod, true);
                     }
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to display installed mods", ex);
                     JOptionPane.showMessageDialog(null, "Failed to display mods");
                 }
             }
@@ -108,7 +108,7 @@ public class MyModsFrame {
                         modDisplay.addMod(mod, true);
                     }
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to display installed mods", ex);
                     JOptionPane.showMessageDialog(null, "Failed to display mods");
                 }
 
@@ -127,14 +127,14 @@ public class MyModsFrame {
                         return;
                     }
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to calculate next page", ex);
                     JOptionPane.showMessageDialog(null, "Failed to calculate max forward number");
                 }
                 currentPageNumber++;
                 try {
                     currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((WorkshopAPI.getInstalledMods().size() / (int) itemsPerPage.getValue()) + 1)))));
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to update page info", ex);
                     JOptionPane.showMessageDialog(null, "Failed to update page info");
                 }
                 modDisplay.removeMods();
@@ -143,7 +143,7 @@ public class MyModsFrame {
                         modDisplay.addMod(mod, true);
                     }
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to display installed mods", ex);
                     JOptionPane.showMessageDialog(null, "Failed to display mods");
                 }
 
@@ -161,7 +161,7 @@ public class MyModsFrame {
                 try {
                     currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((WorkshopAPI.getInstalledMods().size() / (int) itemsPerPage.getValue()) + 1)))));
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to update page info", ex);
                     JOptionPane.showMessageDialog(null, "Failed to update page info");
                 }
                 modDisplay.removeMods();
@@ -170,7 +170,7 @@ public class MyModsFrame {
                         modDisplay.addMod(mod, true);
                     }
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to display installed mods", ex);
                     JOptionPane.showMessageDialog(null, "Failed to display mods");
                 }
 
@@ -242,7 +242,7 @@ public class MyModsFrame {
         try {
             currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((WorkshopAPI.getInstalledMods().size() / (int) itemsPerPage.getValue()) + 1)))));
         } catch (IOException ex) {
-            ex.printStackTrace();
+            PublicValues.logException("Failed to update page info", ex);
             JOptionPane.showMessageDialog(null, "Failed to update page info");
             return;
         }
@@ -252,7 +252,7 @@ public class MyModsFrame {
                 modDisplay.addMod(mod, true);
             }
         } catch (IOException ex) {
-            ex.printStackTrace();
+            PublicValues.logException("Failed to display installed mods", ex);
             JOptionPane.showMessageDialog(null, "Failed to display mods");
             return;
         }

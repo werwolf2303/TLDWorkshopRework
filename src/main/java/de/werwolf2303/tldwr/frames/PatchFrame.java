@@ -41,7 +41,8 @@ public class PatchFrame implements Frame {
             try {
                 Thread.sleep(99);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                PublicValues.logException("Patch frame loop interrupted", e);
+                Thread.currentThread().interrupt();
             }
         }
     }
@@ -84,4 +85,3 @@ public class PatchFrame implements Frame {
         return contentPanel;
     }
 }
-

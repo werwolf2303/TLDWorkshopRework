@@ -48,7 +48,7 @@ public class SettingsFrame {
                     }
                     new UpdateModsFrame().showIt(modsWithUpdates);
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to check for updates", ex);
                     JOptionPane.showMessageDialog(null, "Failed to check for updates");
                 }
             }
@@ -59,7 +59,7 @@ public class SettingsFrame {
             public void actionPerformed(ActionEvent e) {
                 new TLDPatcher().uninstall();
                 JOptionPane.showMessageDialog(null, "Uninstall complete");
-                System.exit(0);
+                PublicValues.exitApplication(0, "Uninstall finished");
             }
         });
 
@@ -79,7 +79,7 @@ public class SettingsFrame {
         try {
             ((DefaultTableModel) information.getModel()).addRow(new Object[]{"Installed mods: " + (WorkshopAPI.getInstalledMods().size())});
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed loading installed mods count", e);
             JOptionPane.showMessageDialog(null, "Failed to load installed mods");
         }
         information.setShowGrid(false);
@@ -179,4 +179,3 @@ public class SettingsFrame {
         return contentPanel;
     }
 }
-

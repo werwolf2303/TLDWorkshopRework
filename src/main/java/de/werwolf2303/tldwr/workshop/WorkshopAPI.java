@@ -26,16 +26,16 @@ import java.util.ArrayList;
 import java.util.logging.Logger;
 
 public class WorkshopAPI {
-    private static String respositoryURL = "https://kolbenlp.gitlab.io/WorkshopTLDMods";
-    private static String modlist = "modlist_3.json";
+    private static final String repositoryUrl = "https://kolbenlp.gitlab.io/WorkshopTLDMods";
+    private static final String modlist = "modlist_3.json";
     private static ArrayList<Mod> modsCache;
     private static ArrayList<Object[]> imageCache;
     private static File configPath;
     private static int getStreamRetries = 0;
     private static int customRetries = 0;
     private static final Logger logger = PublicValues.newLogger(WorkshopAPI.class.getSimpleName());
-    private static String modPackRepositoryURL = "https://gitlab.com/KolbenLP/WorkshopTLDMods";
-    private static String modPackList = "/-/raw/WorkshopDatabase8.6/Modpacks/modlist_3.json";
+    private static final String modPackRepositoryUrl = "https://gitlab.com/KolbenLP/WorkshopTLDMods";
+    private static final String modPackList = "/-/raw/WorkshopDatabase8.6/Modpacks/modlist_3.json";
     private static ArrayList<Mod> modPacksCache;
 
     public static class Mod {
@@ -93,7 +93,7 @@ public class WorkshopAPI {
             try {
                 configSave(root);
             } catch (IOException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed writing mod store", e);
                 JOptionPane.showMessageDialog(null, "Failed to write to mod store");
             }
 
@@ -139,15 +139,16 @@ public class WorkshopAPI {
             copyFile(new File(tmpdir, mod.FileName), new File(PublicValues.tldUserPath + File.separator + "Mods", mod.FileName));
             Events.triggerEvent(TLDWREvents.DOWNLOAD_FINISHED.getName());
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to download mod", e);
             JOptionPane.showMessageDialog(null, "Failed to download mod");
         }
     }
 
     private static int searchForInstalledMod(String name) throws IOException {
-        for(Mod mod : getAllMods()) {
+        ArrayList<Mod> allMods = getAllMods();
+        for(Mod mod : allMods) {
             if(mod.Name.equals(name)) {
-                return getAllMods().indexOf(mod);
+                return allMods.indexOf(mod);
             }
         }
         return -1;
@@ -269,7 +270,11 @@ public class WorkshopAPI {
         Thread downloadThread = new Thread(() -> {
             try {
                 downloadSingleThreaded(mod, runnable, downloadPath, addToMyMods);
-            } catch (IOException ignored) {
+            } catch (IOException e) {
+                logger.warning("Download failed for " + mod.Name + ": " + e.getMessage());
+                SwingUtilities.invokeLater(() ->
+                        JOptionPane.showMessageDialog(null, "Failed to download mod: " + mod.Name)
+                );
             }
         });
         downloadThread.start();
@@ -304,7 +309,7 @@ public class WorkshopAPI {
             }
             if(addToMyMods) Events.triggerEvent(TLDWREvents.DOWNLOAD_FINISHED.getName());
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to download mod: " + mod.Name, e);
             JOptionPane.showMessageDialog(null, "Failed to download mod: " + mod.Name);
             throw e;
         }
@@ -333,14 +338,14 @@ public class WorkshopAPI {
         OkHttpClient client = PublicValues.client;
         client.setRetryOnConnectionFailure(true);
         Request request = new Request.Builder()
-                .url(respositoryURL + "/" + modlist)
+                .url(repositoryUrl + "/" + modlist)
                 .build();
         try {
             for (Object entry : new JSONObject(client.newCall(request).execute().body().string()).getJSONArray("Mods")) {
                 modsCache.add(new Gson().fromJson(entry.toString(), Mod.class));
             }
 
-            request = request.newBuilder().url(modPackRepositoryURL + modPackList).build();
+            request = request.newBuilder().url(modPackRepositoryUrl + modPackList).build();
 
             for (Object entry : new JSONObject(client.newCall(request).execute().body().string()).getJSONArray("Mods")) {
                 modPacksCache.add(new Gson().fromJson(entry.toString(), Mod.class));
@@ -352,7 +357,7 @@ public class WorkshopAPI {
             customRetries++;
             reloadMods();
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to fetch mods", e);
             JOptionPane.showMessageDialog(null, "Failed to fetch mods");
         }
     }
@@ -371,7 +376,6 @@ public class WorkshopAPI {
 
     public static ArrayList<Mod> getModsInCategory(int offset, int limit, String categoryName) {
         ArrayList<Mod> modsCache = new ArrayList<>();
-        ArrayList<Mod> mods = new ArrayList<>();
 
         for(Mod mod : getAllMods()) {
             if(mod.Category.equals(categoryName)) {
@@ -379,27 +383,23 @@ public class WorkshopAPI {
             }
         }
 
-        int endIndex = Math.min(offset + limit, modsCache.size());
-        for(Mod mod : new ArrayList<>(modsCache.subList(offset, endIndex))) {
-            mods.add(mod);
-        }
-
-        return mods;
-    }
-
-    public static ArrayList<Mod> getInstalledMods(int offset, int limit) throws IOException {
-        ArrayList<Mod> mods = new ArrayList<>();
-
-        if (getInstalledMods().isEmpty() || offset < 0 || limit < 1 || offset >= getInstalledMods().size()) {
+        if (modsCache.isEmpty() || offset < 0 || limit < 1 || offset >= modsCache.size()) {
             return new ArrayList<>();
         }
 
-        int endIndex = Math.min(offset + limit, getInstalledMods().size());
-        for(Mod mod : new ArrayList<>(getInstalledMods().subList(offset, endIndex))) {
-            mods.add(mod);
+        int endIndex = Math.min(offset + limit, modsCache.size());
+        return new ArrayList<>(modsCache.subList(offset, endIndex));
+    }
+
+    public static ArrayList<Mod> getInstalledMods(int offset, int limit) throws IOException {
+        ArrayList<Mod> installedMods = getInstalledMods();
+
+        if (installedMods.isEmpty() || offset < 0 || limit < 1 || offset >= installedMods.size()) {
+            return new ArrayList<>();
         }
 
-        return mods;
+        int endIndex = Math.min(offset + limit, installedMods.size());
+        return new ArrayList<>(installedMods.subList(offset, endIndex));
     }
 
     public static ArrayList<Mod> getMods(int offset, int limit) {
@@ -422,7 +422,11 @@ public class WorkshopAPI {
     }
 
     public static void deleteModPackFolder(File path) {
-        for (File file : path.listFiles()) {
+        File[] files = path.listFiles();
+        if (files == null) {
+            return;
+        }
+        for (File file : files) {
             if (file.isDirectory()) {
                 deleteModPackFolder(file);
                 continue;
@@ -475,7 +479,7 @@ public class WorkshopAPI {
                         JOptionPane.showMessageDialog(null, "Unsupported OS! Please start the game manually");
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed to start game with modpack", e);
                 JOptionPane.showMessageDialog(null, "Failed to start tld with modpack: " + e.getMessage());
             }
         }, "Modpack download").start();

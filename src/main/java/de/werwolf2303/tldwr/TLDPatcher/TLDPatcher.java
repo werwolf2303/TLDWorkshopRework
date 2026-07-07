@@ -59,7 +59,7 @@ public class TLDPatcher {
                 writer.close();
                 logger.info("Created patcher path config and wrote defaults");
             } catch (IOException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed to create path config", e);
                 JOptionPane.showMessageDialog(null, "Failed to create path config");
             }
         }else{
@@ -74,13 +74,13 @@ public class TLDPatcher {
                 logger.info("TLDUserPath: " + PublicValues.tldUserPath);
                 logger.info("SteamPath: " + PublicValues.steamPath);
             } catch (NullPointerException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed to read path config", e);
                 JOptionPane.showMessageDialog(null, "Failed to read path config");
-                System.exit(-1);
+                PublicValues.exitApplication(-1, "Failed to read path config");
             } catch (IOException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed to read path config", e);
                 JOptionPane.showMessageDialog(null, "Failed to read path config");
-                System.exit(-1);
+                PublicValues.exitApplication(-1, "Failed to read path config");
             }
         }
 
@@ -95,13 +95,13 @@ public class TLDPatcher {
             try {
                 root.put("GameVersion", getGameVersion());
             } catch (IOException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed to get game version", e);
                 JOptionPane.showMessageDialog(null, "Failed to get game version");
             }
             try {
                 configSave(root);
             }catch (IOException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed to save patcher config", e);
                 JOptionPane.showMessageDialog(null, "Failed to save patcher config");
             }
             logger.info("Created patcher config and wrote defaults");
@@ -148,7 +148,7 @@ public class TLDPatcher {
             root.put("Patched", true);
             configSave(root);
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to load patcher config", e);
             JOptionPane.showMessageDialog(null, "Failed to load config");
         }
         if(PublicValues.mainFrame == null) PublicValues.currentFrame.close();
@@ -166,14 +166,14 @@ public class TLDPatcher {
         try {
             FileUtils.deleteDirectory(new File(PublicValues.tldUserPath, "Mods"));
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to delete mods directory", e);
             JOptionPane.showMessageDialog(null, "Failed to delete directory");
         }
         try {
             copyFile(new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "Assembly-CSharp.original.dll"),
                     new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "Assembly-CSharp.dll"));
         }catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to copy game files", e);
             JOptionPane.showMessageDialog(null, "Failed to copy file/s");
         }
     }
@@ -184,7 +184,7 @@ public class TLDPatcher {
         try {
             FileUtils.deleteDirectory(tldPatcherPathConfigPath.getParentFile());
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to delete patcher config directory", e);
             JOptionPane.showMessageDialog(null, "Failed to delete directory");
         }
     }
@@ -229,7 +229,7 @@ public class TLDPatcher {
                 return true;
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to load patcher config", e);
             JOptionPane.showMessageDialog(null, "Failed to load config");
         }
         return false;
@@ -243,21 +243,21 @@ public class TLDPatcher {
             JSONObject root = new JSONObject(configLoad());
             if(!root.getString("GameVersion").equals(getGameVersion())) {
                 JOptionPane.showMessageDialog(null, "!!!The Game version is incompatible!!! Download the right Workshop version for your game version");
-                System.exit(-1);
+                PublicValues.exitApplication(-1, "Game version is incompatible");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to load patcher config", e);
             JOptionPane.showMessageDialog(null, "Failed to load config");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed to load patcher config");
         }
 
         try {
             copyFile(new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "Assembly-CSharp.dll"),
                     new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "Assembly-CSharp.original.dll"));
         }catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to back up Assembly-CSharp.dll", e);
             JOptionPane.showMessageDialog(null, "Failed to copy file/s");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed to back up Assembly-CSharp.dll");
         }
         logger.info("Created backup of original Assembly-CSharp.dll");
 
@@ -265,36 +265,36 @@ public class TLDPatcher {
             copyStream(Objects.requireNonNull(getClass().getResourceAsStream("/Assembly-CSharp.dll")),
                     new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "Assembly-CSharp.dll"));
         }catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to install Assembly-CSharp.dll", e);
             JOptionPane.showMessageDialog(null, "Failed to copy file/s");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed to install Assembly-CSharp.dll");
         }
         logger.info("Copied Assembly-CSharp.dll into Managed");
 
         try {
             copyStream(PublicValues.tldLoaderDownloadURL.openStream(), new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "TLDLoader.dll"));
         } catch (Exception e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to download TLDLoader.dll", e);
             JOptionPane.showMessageDialog(null, "Failed to download TLDLoader.dll");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed to download TLDLoader.dll");
         }
         logger.info("Copied TLDLoader.dll into Managed");
 
         try {
             copyStream(PublicValues.monoCecilDownloadURL.openStream(), new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "Mono.Cecil.dll"));
         } catch (Exception e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to download Mono.Cecil.dll", e);
             JOptionPane.showMessageDialog(null, "Failed to download Mono.Cecil.dll");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed to download Mono.Cecil.dll");
         }
         logger.info("Copied Mono.Cecil.dll into Managed");
 
         try {
             copyStream(PublicValues.zeroHarmonyDownloadURL.openStream(), new File(PublicValues.tldPath + File.separator + "TheLongDrive_Data" + File.separator + "Managed" + File.separator + "0Harmony.dll"));
         } catch (Exception e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to download 0Harmony.dll", e);
             JOptionPane.showMessageDialog(null, "Failed to download 0Harmony.dll");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed to download 0Harmony.dll");
         }
         logger.info("Copied 0Harmony.dll into Managed");
 
@@ -307,9 +307,9 @@ public class TLDPatcher {
                 fileOutputStream.write(dataBuffer, 0, bytesRead);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to download TLDPatcher.zip", e);
             JOptionPane.showMessageDialog(null, "Failed to download TLDPatcher.zip");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed to download TLDPatcher.zip");
         }
         logger.info("Downloaded patcher from: " + PublicValues.tldPatcherDownloadURL.toString());
 
@@ -321,9 +321,9 @@ public class TLDPatcher {
         try {
             new ZipFile(tmpdir + File.separator + "TLDPatcher.zip").extractAll(PublicValues.tldUserPath + File.separator + "Mods" + File.separator + "Assets");
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to extract TLDPatcher.zip", e);
             JOptionPane.showMessageDialog(null, "Failed to extract TLDPatcher");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed to extract TLDPatcher.zip");
         }
         logger.info("Unzipped TLDPatcher.zip");
     }
@@ -373,7 +373,7 @@ public class TLDPatcher {
 
         if(!tldUserPath.exists()) {
             JOptionPane.showMessageDialog(null, "Please start The Long Drive once");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Missing TLD user path");
             return;
         }
 
@@ -386,7 +386,7 @@ public class TLDPatcher {
 
         if(!protonPath.exists()) {
             JOptionPane.showMessageDialog(null, "Please start The Long Drive once to create the proton prefix");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Missing proton prefix");
         }
 
         PublicValues.tldUserPath = protonPath.getAbsolutePath();
@@ -400,7 +400,7 @@ public class TLDPatcher {
 
         if(!tldUserPath.exists()) {
             JOptionPane.showMessageDialog(null, "Please start The Long Drive once");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Missing TLD user path");
         }
 
         PublicValues.tldUserPath = tldUserPath.getAbsolutePath();
@@ -440,9 +440,9 @@ public class TLDPatcher {
                 throw new IOException("Game not installed");
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed finding The Long Drive installation", e);
             JOptionPane.showMessageDialog(null, "Didn't find The Long Drive! Is it installed?");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed finding The Long Drive installation");
         }
         logger.info("Found tld path: " + PublicValues.tldPath);
     }
@@ -462,9 +462,9 @@ public class TLDPatcher {
                 PublicValues.tldPath = tldPath.getAbsolutePath();
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed finding The Long Drive installation", e);
             JOptionPane.showMessageDialog(null, "Didn't find The Long Drive! Is it installed?");
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "Failed finding The Long Drive installation");
         }
         logger.info("Found tld path: " + PublicValues.tldPath);
     }
@@ -494,7 +494,7 @@ public class TLDPatcher {
                         whiskyBottleNamesWithSteam.add(((NSDictionary)root.objectForKey("info")).get("name").toString());
                     } catch (IOException | PropertyListFormatException | ParseException | ParserConfigurationException |
                              SAXException e) {
-                        e.printStackTrace();
+                        PublicValues.logException("Failed reading Whisky bottle metadata", e);
                         whiskyBottleNamesWithSteam.add("unknown");
                     }
                     steamInstalls.add(System.getProperty("user.home") + "/Library/Containers/com.isaacmarovitz.Whisky/Bottles/" + bottle + "/drive_c/Program Files (x86)/Steam");
@@ -515,7 +515,7 @@ public class TLDPatcher {
         if(steamInstalls.size() == 1) return steamInstalls.get(0);
         if(steamInstalls.isEmpty()) {
             JOptionPane.showMessageDialog(null, "No Steam installation found", "Can't continue", JOptionPane.ERROR_MESSAGE);
-            System.exit(-1);
+            PublicValues.exitApplication(-1, "No Steam installation found");
         }
 
         Object userSelection = JOptionPane.showInputDialog(null,
@@ -526,7 +526,7 @@ public class TLDPatcher {
                 userFriendlyNames.get(0)
         );
 
-        if(userSelection == null) System.exit(-1); //User aborted installation
+        if(userSelection == null) PublicValues.exitApplication(-1, "User aborted Steam selection"); //User aborted installation
 
         return steamInstalls.get(userFriendlyNames.indexOf((String) userSelection));
     }
@@ -536,7 +536,7 @@ public class TLDPatcher {
         fileChooser.setDialogTitle(title);
         fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
 
-        if(fileChooser.showOpenDialog(parent) == JFileChooser.CANCEL_OPTION) System.exit(-1); //User aborted
+        if(fileChooser.showOpenDialog(parent) == JFileChooser.CANCEL_OPTION) PublicValues.exitApplication(-1, "User aborted directory selection"); //User aborted
 
         if(!new File(fileChooser.getSelectedFile(), searchForInside).exists()) {
             if(PublicValues.osType == OSDetect.OSType.MacOS) {
@@ -545,7 +545,7 @@ public class TLDPatcher {
                         "Can't continue",
                         JOptionPane.ERROR_MESSAGE
                 );
-                System.exit(-1);
+                PublicValues.exitApplication(-1, "Wrong directory selected on macOS");
             }
             return promptUserForManualPathSelection(title, parent, searchForInside);
         }

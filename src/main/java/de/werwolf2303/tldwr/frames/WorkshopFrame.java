@@ -18,8 +18,13 @@ import java.awt.*;
 import java.awt.event.*;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 public class WorkshopFrame {
+    private static final String ALL_CATEGORIES = "All Categories";
+    private static final int MIN_ITEMS_PER_PAGE = 1;
+    private static final int MAX_ITEMS_PER_PAGE = 998;
+
     public JFrame frame;
     public JPanel contentPanel;
     public JButton homeButton;
@@ -54,69 +59,32 @@ public class WorkshopFrame {
         itemsPerPage.addChangeListener(new ChangeListener() {
             @Override
             public void stateChanged(ChangeEvent e) {
-                if (((int) itemsPerPage.getValue()) == 0) itemsPerPage.setValue(1); // Min
-                if (((int) itemsPerPage.getValue()) > 998) itemsPerPage.setValue(998); // Max
-                new Thread(() -> {
+                runInBackground("Mod per page", () -> {
+                    int perPage = clampItemsPerPage();
                     modDisplay.beginLoading();
-
                     currentPageNumber = 1;
-
-                    if (!categories.getSelectedItem().toString().equals("All Categories")) {
-
-                        ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getModsInCategory(0, (int) itemsPerPage.getValue(), categories.getSelectedItem().toString());
-                        int modsInCategory = WorkshopAPI.getAmountOfModsInCategory(categories.getSelectedItem().toString());
-
-                        SwingUtilities.invokeLater(() -> {
-                            currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((modsInCategory / (int) itemsPerPage.getValue()) + 1)))));
-
-                            modDisplay.removeMods();
-
-                            for (WorkshopAPI.Mod mod : mods) {
-                                modDisplay.addMod(mod, false);
-                            }
-
-                            modDisplay.modRefreshRespectSize();
-                        });
-                        return;
-                    }
-
-                    ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getMods(currentPageNumber - 1, (int) itemsPerPage.getValue());
-                    int modsInCategory = WorkshopAPI.getAllMods().size();
-
+                    ArrayList<WorkshopAPI.Mod> mods = getCurrentPageMods(perPage);
+                    int totalMods = getCurrentTotalMods();
                     SwingUtilities.invokeLater(() -> {
-                        currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((modsInCategory / (int) itemsPerPage.getValue()) + 1)))));
-
-                        modDisplay.removeMods();
-
-                        for (WorkshopAPI.Mod mod : mods) {
-                            modDisplay.addMod(mod, false);
-                        }
-
-                        modDisplay.modRefreshRespectSize();
+                        setPageText(totalMods, perPage);
+                        renderMods(mods);
                     });
-                }, "Mod per page").start();
+                });
             }
         });
 
-        new Thread(() -> {
+        runInBackground("Mods loader", () -> {
+            int perPage = clampItemsPerPage();
             modDisplay.beginLoading();
-
-            ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getMods(0, (int) itemsPerPage.getValue());
+            ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getMods(0, perPage);
             int modsInCategory = WorkshopAPI.getAllMods().size();
 
             SwingUtilities.invokeLater(() -> {
-                for (WorkshopAPI.Mod mod : mods) {
-                    if (!categoriesList.contains(mod.Category)) categoriesList.add(mod.Category);
-                    modDisplay.addMod(mod, false);
-                }
-
-                refreshCategories();
-
-                currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((modsInCategory / (int) itemsPerPage.getValue()) + 1)))));
-
-                modDisplay.modRefreshRespectSize();
+                refreshCategoriesFromAllMods();
+                setPageText(modsInCategory, perPage);
+                renderMods(mods);
             });
-        }, "Mods loader").start();
+        });
 
         MyModsFrame myModsFrame = new MyModsFrame(this);
         myModsFrame.getContentPanel().setVisible(false);
@@ -150,143 +118,60 @@ public class WorkshopFrame {
         refreshButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                new Thread(() -> {
+                runInBackground("Mods refresh", () -> {
+                    int perPage = clampItemsPerPage();
                     modDisplay.beginLoading();
-                    if (!categories.getSelectedItem().toString().equals("All Categories")) {
-
-                        ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getModsInCategory((currentPageNumber - 1) * (int) itemsPerPage.getValue(), (int) itemsPerPage.getValue(), categories.getSelectedItem().toString());
-
-                        SwingUtilities.invokeLater(() -> {
-                            modDisplay.removeMods();
-
-                            for (WorkshopAPI.Mod mod : mods) {
-                                modDisplay.addMod(mod, false);
-                            }
-
-                            modDisplay.modRefreshRespectSize();
-                        });
-                        return;
-                    }
-
                     WorkshopAPI.reloadMods();
-                    categoriesList.clear();
-
-                    ArrayList<WorkshopAPI.Mod> mods;
-                    ArrayList<WorkshopAPI.Mod> paginatedMods;
-                    mods = WorkshopAPI.getAllMods();
-                    paginatedMods = WorkshopAPI.getMods((currentPageNumber - 1) * (int) itemsPerPage.getValue(), (int) itemsPerPage.getValue());
-
+                    ArrayList<WorkshopAPI.Mod> mods = getCurrentPageMods(perPage);
+                    int totalMods = getCurrentTotalMods();
                     SwingUtilities.invokeLater(() -> {
-                        modDisplay.removeMods();
-
-                        for (WorkshopAPI.Mod mod : mods) {
-                            if (!categoriesList.contains(mod.Category)) categoriesList.add(mod.Category);
-                        }
-
-                        refreshCategories();
-
-                        for (WorkshopAPI.Mod mod : paginatedMods) {
-                            modDisplay.addMod(mod, false);
-                        }
-
-                        modDisplay.modRefreshRespectSize();
+                        refreshCategoriesFromAllMods();
+                        setPageText(totalMods, perPage);
+                        renderMods(mods);
                     });
-                }, "Mods refresh").start();
+                });
             }
         });
 
         pageNextButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                new Thread(() -> {
-                    if (currentPageNumber + 1 > (Math.round(Float.parseFloat(String.valueOf((WorkshopAPI.getAllMods().size() / (int) itemsPerPage.getValue()) + 1))))) {
+                runInBackground("Next page", () -> {
+                    int perPage = clampItemsPerPage();
+                    int totalMods = getCurrentTotalMods();
+                    if (currentPageNumber + 1 > calculateTotalPages(totalMods, perPage)) {
                         return;
                     }
 
                     modDisplay.beginLoading();
                     currentPageNumber++;
-
-                    if (!categories.getSelectedItem().toString().equals("All Categories")) {
-                        ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getModsInCategory((currentPageNumber - 1) * (int) itemsPerPage.getValue(), (int) itemsPerPage.getValue(), categories.getSelectedItem().toString());
-                        int modsInCategory = WorkshopAPI.getAmountOfModsInCategory(categories.getSelectedItem().toString());
-
-                        SwingUtilities.invokeLater(() -> {
-                            currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((modsInCategory / (int) itemsPerPage.getValue()) + 1)))));
-
-                            modDisplay.removeMods();
-
-                            for (WorkshopAPI.Mod mod : mods) {
-                                modDisplay.addMod(mod, false);
-                            }
-
-                            modDisplay.modRefreshRespectSize();
-                        });
-                        return;
-                    }
-
-                    ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getMods((currentPageNumber - 1) * (int) itemsPerPage.getValue(), (int) itemsPerPage.getValue());
-                    int modsInCategory = WorkshopAPI.getAllMods().size();
-
+                    ArrayList<WorkshopAPI.Mod> mods = getCurrentPageMods(perPage);
                     SwingUtilities.invokeLater(() -> {
-                        currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((modsInCategory / (int) itemsPerPage.getValue()) + 1)))));
-
-                        modDisplay.removeMods();
-
-                        for (WorkshopAPI.Mod mod : mods) {
-                            modDisplay.addMod(mod, false);
-                        }
-
-                        modDisplay.modRefreshRespectSize();
+                        setPageText(totalMods, perPage);
+                        renderMods(mods);
                     });
-                }, "Next page").start();
+                });
             }
         });
 
         pagePreviousButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                new Thread(() -> {
+                runInBackground("Previous page", () -> {
+                    int perPage = clampItemsPerPage();
                     if (currentPageNumber - 1 < 1) {
                         return;
                     }
 
                     modDisplay.beginLoading();
                     currentPageNumber--;
-
-                    if (!categories.getSelectedItem().toString().equals("All Categories")) {
-                        ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getModsInCategory((currentPageNumber - 1) * (int) itemsPerPage.getValue(), (int) itemsPerPage.getValue(), categories.getSelectedItem().toString());
-                        int modsInCategory = WorkshopAPI.getAmountOfModsInCategory(categories.getSelectedItem().toString());
-
-                        SwingUtilities.invokeLater(() -> {
-                            currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((modsInCategory / (int) itemsPerPage.getValue()) + 1)))));
-
-                            modDisplay.removeMods();
-
-                            for (WorkshopAPI.Mod mod : mods) {
-                                modDisplay.addMod(mod, false);
-                            }
-
-                            modDisplay.modRefreshRespectSize();
-                        });
-
-                        return;
-                    }
-
-                    ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getMods((currentPageNumber - 1) * (int) itemsPerPage.getValue(), (int) itemsPerPage.getValue());
-                    int modsInCategory = WorkshopAPI.getAllMods().size();
-
+                    int totalMods = getCurrentTotalMods();
+                    ArrayList<WorkshopAPI.Mod> mods = getCurrentPageMods(perPage);
                     SwingUtilities.invokeLater(() -> {
-                        currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((modsInCategory / (int) itemsPerPage.getValue()) + 1)))));
-
-                        modDisplay.removeMods();
-
-                        for (WorkshopAPI.Mod mod : mods) {
-                            modDisplay.addMod(mod, false);
-                        }
-
-                        modDisplay.modRefreshRespectSize();
+                        setPageText(totalMods, perPage);
+                        renderMods(mods);
                     });
-                }, "Previous page").start();
+                });
             }
         });
 
@@ -325,30 +210,20 @@ public class WorkshopFrame {
         categories.addItemListener(new ItemListener() {
             @Override
             public void itemStateChanged(ItemEvent e) {
-                if (bypassCategoryUpdate) return;
+                if (bypassCategoryUpdate || e.getStateChange() != ItemEvent.SELECTED) return;
 
                 currentPageNumber = 1;
 
                 modDisplay.beginLoading();
-
-                if (e.getItem().toString().equals("All Categories")) {
-                    modDisplay.removeMods();
+                int perPage = clampItemsPerPage();
+                if (allCategoriesSelected()) {
                     WorkshopAPI.reloadMods();
-
-                    currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((WorkshopAPI.getAllMods().size() / (int) itemsPerPage.getValue()) + 1)))));
-
-                    for (WorkshopAPI.Mod mod : WorkshopAPI.getMods((currentPageNumber - 1) * (int) itemsPerPage.getValue(), (int) itemsPerPage.getValue())) {
-                        modDisplay.addMod(mod, false);
-                    }
-                    return;
+                    refreshCategoriesFromAllMods();
                 }
-
-                currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((WorkshopAPI.getAmountOfModsInCategory(categories.getSelectedItem().toString()) / (int) itemsPerPage.getValue()) + 1)))));
-                modDisplay.removeMods();
-                for (WorkshopAPI.Mod mod : WorkshopAPI.getModsInCategory(currentPageNumber - 1, (int) itemsPerPage.getValue(), categories.getSelectedItem().toString())) {
-                    modDisplay.addMod(mod, false);
-                }
-                modDisplay.endLoading();
+                int totalMods = getCurrentTotalMods();
+                ArrayList<WorkshopAPI.Mod> mods = getCurrentPageMods(perPage);
+                setPageText(totalMods, perPage);
+                renderMods(mods);
             }
         });
 
@@ -356,6 +231,7 @@ public class WorkshopFrame {
             @Override
             public void keyPressed(KeyEvent e) {
                 if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                    int perPage = clampItemsPerPage();
                     modDisplay.beginLoading();
                     if (searchField.getText().isEmpty()) {
                         currentPage.setEnabled(true);
@@ -369,11 +245,9 @@ public class WorkshopFrame {
 
                         currentPageNumber = 1;
 
-                        currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((WorkshopAPI.getAllMods().size() / (int) itemsPerPage.getValue()) + 1)))));
-
-                        for (WorkshopAPI.Mod mod : WorkshopAPI.getMods((currentPageNumber - 1) * (int) itemsPerPage.getValue(), (int) itemsPerPage.getValue())) {
-                            modDisplay.addMod(mod, false);
-                        }
+                        ArrayList<WorkshopAPI.Mod> mods = WorkshopAPI.getMods(0, perPage);
+                        setPageText(WorkshopAPI.getAllMods().size(), perPage);
+                        renderMods(mods);
                         return;
                     }
 
@@ -387,23 +261,96 @@ public class WorkshopFrame {
                     ArrayList<WorkshopAPI.Mod> mods = searchEngine.search(WorkshopAPI.getAllMods(), searchField.getText());
                     currentPageNumber = 1;
 
-                    currentPage.setText("Page: " + currentPageNumber + "/" + (Math.round(Float.parseFloat(String.valueOf((mods.size() / (int) itemsPerPage.getValue()) + 1)))));
-                    modDisplay.removeMods();
-
-                    for (WorkshopAPI.Mod mod : mods) {
-                        modDisplay.addMod(mod, false);
-                    }
-                    modDisplay.endLoading();
+                    setPageText(mods.size(), perPage);
+                    renderMods(mods);
                 }
             }
         });
     }
 
+    private int getItemsPerPageValue() {
+        return (int) itemsPerPage.getValue();
+    }
+
+    private int clampItemsPerPage() {
+        int value = getItemsPerPageValue();
+        if (value < MIN_ITEMS_PER_PAGE) {
+            itemsPerPage.setValue(MIN_ITEMS_PER_PAGE);
+            return MIN_ITEMS_PER_PAGE;
+        }
+        if (value > MAX_ITEMS_PER_PAGE) {
+            itemsPerPage.setValue(MAX_ITEMS_PER_PAGE);
+            return MAX_ITEMS_PER_PAGE;
+        }
+        return value;
+    }
+
+    private int calculateTotalPages(int totalItems, int perPage) {
+        if (perPage < 1) {
+            return 1;
+        }
+        return Math.max(1, (totalItems + perPage - 1) / perPage);
+    }
+
+    private String selectedCategory() {
+        Object selected = categories.getSelectedItem();
+        return selected == null ? ALL_CATEGORIES : selected.toString();
+    }
+
+    private boolean allCategoriesSelected() {
+        return ALL_CATEGORIES.equals(selectedCategory());
+    }
+
+    private int currentOffset(int perPage) {
+        return (currentPageNumber - 1) * perPage;
+    }
+
+    private void setPageText(int totalItems, int perPage) {
+        currentPage.setText("Page: " + currentPageNumber + "/" + calculateTotalPages(totalItems, perPage));
+    }
+
+    private ArrayList<WorkshopAPI.Mod> getCurrentPageMods(int perPage) {
+        int offset = currentOffset(perPage);
+        if (allCategoriesSelected()) {
+            return WorkshopAPI.getMods(offset, perPage);
+        }
+        return WorkshopAPI.getModsInCategory(offset, perPage, selectedCategory());
+    }
+
+    private int getCurrentTotalMods() {
+        if (allCategoriesSelected()) {
+            return WorkshopAPI.getAllMods().size();
+        }
+        return WorkshopAPI.getAmountOfModsInCategory(selectedCategory());
+    }
+
+    private void renderMods(List<WorkshopAPI.Mod> mods) {
+        modDisplay.removeMods();
+        for (WorkshopAPI.Mod mod : mods) {
+            modDisplay.addMod(mod, false);
+        }
+        modDisplay.modRefreshRespectSize();
+    }
+
+    private void refreshCategoriesFromAllMods() {
+        categoriesList.clear();
+        for (WorkshopAPI.Mod mod : WorkshopAPI.getAllMods()) {
+            if (!categoriesList.contains(mod.Category)) {
+                categoriesList.add(mod.Category);
+            }
+        }
+        refreshCategories();
+    }
+
+    private void runInBackground(String name, Runnable runnable) {
+        new Thread(runnable, name).start();
+    }
+
     private void refreshCategories() {
         bypassCategoryUpdate = true;
         ((DefaultComboBoxModel) categories.getModel()).removeAllElements();
-        ((DefaultComboBoxModel) categories.getModel()).addElement("All Categories");
-        categories.getModel().setSelectedItem("All Categories");
+        ((DefaultComboBoxModel) categories.getModel()).addElement(ALL_CATEGORIES);
+        categories.getModel().setSelectedItem(ALL_CATEGORIES);
         for (String category : categoriesList) {
             ((DefaultComboBoxModel) categories.getModel()).addElement(category);
         }

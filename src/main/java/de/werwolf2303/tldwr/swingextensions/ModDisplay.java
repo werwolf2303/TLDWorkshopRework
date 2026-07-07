@@ -1,6 +1,7 @@
 package de.werwolf2303.tldwr.swingextensions;
 
 import de.werwolf2303.tldwr.Events;
+import de.werwolf2303.tldwr.PublicValues;
 import de.werwolf2303.tldwr.TLDWREvents;
 import de.werwolf2303.tldwr.frames.WorkshopFrame;
 import de.werwolf2303.tldwr.workshop.WorkshopAPI;
@@ -96,7 +97,7 @@ public class ModDisplay extends JLayeredPane {
                     }
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed loading installed mods", e);
                 JOptionPane.showMessageDialog(null, "Failed to get installed mods");
             }
         }

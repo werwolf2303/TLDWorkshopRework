@@ -81,7 +81,7 @@ public class ModExpandedFrame {
                             }
                     );
                 } catch (IOException | NullPointerException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed to download modpack", ex);
                     JOptionPane.showMessageDialog(null, "Failed to download Modpack");
                     progressBar.setVisible(false);
                 }
@@ -131,10 +131,10 @@ public class ModExpandedFrame {
             try {
                 modImage.setImage(WorkshopAPI.getImageStream("https://gitlab.com/KolbenLP/WorkshopTLDMods/-/raw/WorkshopDatabase8.6/picture/Bild_2023-03-18_174359456.png"));
             } catch (IOException ioe) {
-                ioe.printStackTrace();
+                PublicValues.logException("Failed loading fallback mod image", ioe);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed loading mod image", e);
         }
 
         PublicValues.mainFrame.switchView(MainFrame.Views.ModDetailedView);

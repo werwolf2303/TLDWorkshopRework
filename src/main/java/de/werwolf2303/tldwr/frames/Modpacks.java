@@ -106,7 +106,7 @@ public class Modpacks {
 
                     JOptionPane.showMessageDialog(null, "Modpack created in: " + Paths.get(PublicValues.tldUserPath, "Modpacks", nameTextField.getText() + ".txt"));
                 } catch (IOException ex) {
-                    ex.printStackTrace();
+                    PublicValues.logException("Failed saving modpack file", ex);
                     JOptionPane.showMessageDialog(null, "Failed saving Modpack file: " + ex.getMessage());
                 }
             }
@@ -173,7 +173,7 @@ public class Modpacks {
                 mods.put(mod.FileName, true);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to load installed mods", e);
             JOptionPane.showMessageDialog(contentPanel, "Failed to load mods");
         }
     }

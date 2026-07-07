@@ -11,6 +11,7 @@ import de.werwolf2303.tldwr.utils.OSDetect;
 
 import java.net.URL;
 import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class PublicValues {
@@ -28,6 +29,7 @@ public class PublicValues {
     public static Config config;
     public static OkHttpClient client;
     public static String modPackFolderPath;
+    private static final Logger runtimeLogger = newLogger("Runtime");
 
     public static Logger newLogger(String className) {
         Logger logger = Logger.getLogger(className);
@@ -36,5 +38,14 @@ public class PublicValues {
         consoleHandler.setFormatter(new LoggerFormatter());
         logger.addHandler(consoleHandler);
         return logger;
+    }
+
+    public static void logException(String message, Throwable throwable) {
+        runtimeLogger.log(Level.SEVERE, message, throwable);
+    }
+
+    public static void exitApplication(int status, String reason) {
+        runtimeLogger.severe("Application exit (" + status + "): " + reason);
+        System.exit(status);
     }
 }

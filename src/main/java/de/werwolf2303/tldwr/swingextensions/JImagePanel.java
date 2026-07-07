@@ -15,6 +15,7 @@
  */
 package de.werwolf2303.tldwr.swingextensions;
 
+import de.werwolf2303.tldwr.PublicValues;
 import org.apache.commons.io.IOUtils;
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -90,7 +91,7 @@ public class JImagePanel extends JPanel {
                     image = ImageIO.read(new ByteArrayInputStream(newBytes));
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed recalculating panel image", e);
                 return;
             }
         }

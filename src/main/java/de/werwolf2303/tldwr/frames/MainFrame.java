@@ -159,7 +159,7 @@ public class MainFrame implements Frame {
                     g.drawImage(ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/backgroundImage.png")))
                             .getScaledInstance(mainFramePanel.getWidth(), mainFramePanel.getHeight(), Image.SCALE_SMOOTH), 0, 0, null);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    PublicValues.logException("Failed loading background image", e);
                 }
 
                 g.setColor(Color.white);
@@ -173,7 +173,7 @@ public class MainFrame implements Frame {
                     Image welcomeImage = new ImageIcon(ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream("/welcome.png")))).getImage();
                     g.drawImage(welcomeImage, frame.getWidth() / 2 - 500 / 2, gotoModsButton.getY() / 2 - 93 / 2, null);
                 } catch (IOException e) {
-                    e.printStackTrace();
+                    PublicValues.logException("Failed loading welcome image", e);
                 }
             }
         };
@@ -261,7 +261,7 @@ public class MainFrame implements Frame {
         frame.addWindowListener(new WindowAdapter() {
             @Override
             public void windowClosing(WindowEvent e) {
-                System.exit(0);
+                PublicValues.exitApplication(0, "Main window closed by user");
             }
         });
         frame.setLocation(Toolkit.getDefaultToolkit().getScreenSize().width / 2 - contentPanel.getPreferredSize().width / 2, Toolkit.getDefaultToolkit().getScreenSize().height / 2 - contentPanel.getPreferredSize().height / 2);
@@ -278,7 +278,7 @@ public class MainFrame implements Frame {
                 new UpdateModsFrame().showIt(modsWithUpdates);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed to check for mod updates", e);
             JOptionPane.showMessageDialog(null, "Failed to check for updates");
         }
     }

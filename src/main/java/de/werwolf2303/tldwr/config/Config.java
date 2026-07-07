@@ -1,5 +1,6 @@
 package de.werwolf2303.tldwr.config;
 
+import de.werwolf2303.tldwr.PublicValues;
 import org.apache.commons.io.IOUtils;
 import org.json.JSONObject;
 
@@ -37,12 +38,12 @@ public class Config {
             try {
                 if(!new File(configfilepath).createNewFile()) {
                     JOptionPane.showMessageDialog(null, "Failed creating workshop config");
-                    System.exit(-1);
+                    PublicValues.exitApplication(-1, "Failed creating workshop config file");
                 }
             } catch (IOException e) {
-                e.printStackTrace();
+                PublicValues.logException("Failed creating workshop config file", e);
                 JOptionPane.showMessageDialog(null, "Failed creating workshop config");
-                System.exit(-1);
+                PublicValues.exitApplication(-1, "Failed creating workshop config file");
             }
             try {
                 Files.write(Paths.get(configfilepath), properties.toString().getBytes(StandardCharsets.UTF_8));
@@ -53,7 +54,7 @@ public class Config {
         try {
             properties = new JSONProperties(IOUtils.toString(Files.newInputStream(Paths.get(configfilepath)), Charset.defaultCharset()));
         } catch (IOException e) {
-            e.printStackTrace();
+            PublicValues.logException("Failed reading workshop config", e);
             JOptionPane.showMessageDialog(null, "Failed reading workshop config");
         }
     }
